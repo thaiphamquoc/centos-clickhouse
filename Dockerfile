@@ -30,6 +30,8 @@ RUN cmake3 .. && make -j $threads && make install && \
 
 WORKDIR /
 
+COPY etc/clickhouse-server/config.xml /etc/clickhouse-server/config.xml
+COPY etc/clickhouse-server/users.xml /etc/clickhouse-server/users.xml
 ENV CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.xml
 
 ENTRYPOINT exec clickhouse-server --config=${CLICKHOUSE_CONFIG}
