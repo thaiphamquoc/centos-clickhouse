@@ -3,39 +3,33 @@ MAINTAINER tpham
 
 USER root
 
-ENV CLICKHOUSE_VERSION="v1.1.54318-stable" \
-    THREADS=4 \
-    WORK_DIR=/tmp/clickhouse
+ARG clickhouse_version="v1.1.54318-stable"
+ARG threads=4
+ARG work_dir=/tmp/clickhouse
 
-# install cmake3
-COPY cmake.repo /etc/yum.repos.d/cmake.repo
-RUN yum -y upgrade && \
-    yum -y install epel-release openssl-devel cmake3
+WORKDIR ${work_dir}
 
-WORKDIR ${WORK_DIR}
-
-# install clickhouse dependencies
+RUN yum -y install libicu-devel readline-devel openssl-devel unixODBC-devel libtool-ltdl-devel
 RUN wget http://dev.mysql.com/get/mysql57-community-release-el7-9.noarch.rpm && \
     yum -y --nogpgcheck install mysql57-community-release-el7-9.noarch.rpm && \
-    yum -y install mysql-community-devel
-
+    rm -rf mysql57-community-release-el7-9.noarch.rpm
+RUN yum -y install mysql-community-devel
 RUN ln -s /usr/lib64/mysql/libmysqlclient.a /usr/lib64/libmysqlclient.a
 
-RUN git clone -b ${CLICKHOUSE_VERSION} https://github.com/yandex/ClickHouse.git
+COPY cmake.repo /etc/yum.repos.d/cmake.repo
+RUN yum -y install epel-release
+RUN yum -y install cmake3
 
-WORKDIR ${WORK_DIR}/ClickHouse
-RUN git submodule update --init --recursive
-RUN mkdir build
+RUN git clone -b ${clickhouse_version} https://github.com/yandex/ClickHouse.git && \
+    cd ClickHouse && git submodule update --init --recursive
 
-WORKDIR ${WORK_DIR}/ClickHouse/build
-RUN cmake3 ..
-RUN make -j $THREADS && make install
+WORKDIR ${work_dir}/ClickHouse/build
+RUN cmake3 ..; exit 0
+RUN cmake3 .. && make -j $threads && make install && \
+    rm -rf ${work_dir}
+
+WORKDIR /
 
 ENV CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.xml
 
-COPY entrypoint.sh /
-ENTRYPOINT ["/entrypoint.sh"]
-
-# clean up
-RUN yum clean all
-RUN rm -rf ${WORK_DIR}
+ENTRYPOINT exec clickhouse-server --config=${CLICKHOUSE_CONFIG}
